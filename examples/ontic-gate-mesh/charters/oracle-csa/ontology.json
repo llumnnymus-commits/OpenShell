@@ -1,0 +1,158 @@
+{
+  "registry_version": "csa-1.0.0",
+  "source": "Oracle Cloud Services Agreement, Online v062223 US ENG",
+  "disclaimer": "Illustrative encoding of selected clauses for gate testing. Not legal advice; the agreement text governs.",
+  "kinds": {
+    "Workload": {
+      "status_field": "status",
+      "fields": {
+        "status": {
+          "enum": [
+            "planned",
+            "approved",
+            "running",
+            "suspended",
+            "stopped"
+          ]
+        },
+        "purpose": {
+          "enum": [
+            "internal_ops",
+            "authorized_users",
+            "benchmark",
+            "security_test",
+            "crypto_mining",
+            "bulk_messaging"
+          ]
+        },
+        "ordered_units": {
+          "type": "number"
+        },
+        "used_units": {
+          "type": "number"
+        },
+        "oracle_written_approval": {
+          "enum": [
+            "none",
+            "on_file"
+          ]
+        },
+        "services_period": {
+          "enum": [
+            "active",
+            "retrieval_window",
+            "closed"
+          ]
+        },
+        "owner": {
+          "type": "string"
+        }
+      },
+      "defaults": {
+        "status": "planned",
+        "oracle_written_approval": "none",
+        "services_period": "active",
+        "ordered_units": 0,
+        "used_units": 0
+      },
+      "transitions": [
+        {
+          "from": "planned",
+          "to": "approved",
+          "requires": {
+            "in": [
+              "@entity.purpose",
+              [
+                "internal_ops",
+                "authorized_users",
+                "benchmark",
+                "security_test"
+              ]
+            ]
+          },
+          "text": "Only a purpose within internal business operations or authorized Users can be approved (\u00a71.1, \u00a720.5)"
+        },
+        {
+          "from": "approved",
+          "to": "running",
+          "by": "action",
+          "action": "launch_workload"
+        },
+        {
+          "from": "running",
+          "to": "suspended"
+        },
+        {
+          "from": "suspended",
+          "to": "running"
+        },
+        {
+          "from": "running",
+          "to": "stopped"
+        },
+        {
+          "from": "suspended",
+          "to": "stopped"
+        }
+      ]
+    },
+    "Dataset": {
+      "status_field": "status",
+      "fields": {
+        "status": {
+          "enum": [
+            "staged",
+            "stored",
+            "exported"
+          ]
+        },
+        "classification": {
+          "enum": [
+            "customer_content",
+            "personal_info",
+            "regulated_phi",
+            "regulated_pci",
+            "confidential_terms",
+            "public"
+          ]
+        },
+        "dpa_covered": {
+          "type": "boolean"
+        },
+        "order_permits_regulated": {
+          "type": "boolean"
+        },
+        "export_cleared": {
+          "enum": [
+            "unknown",
+            "cleared",
+            "denied"
+          ]
+        },
+        "owner": {
+          "type": "string"
+        }
+      },
+      "defaults": {
+        "status": "staged",
+        "dpa_covered": false,
+        "order_permits_regulated": false,
+        "export_cleared": "unknown"
+      },
+      "transitions": [
+        {
+          "from": "staged",
+          "to": "stored",
+          "by": "action",
+          "action": "store_dataset"
+        },
+        {
+          "from": "stored",
+          "to": "exported",
+          "by": "action",
+          "action": "export_dataset"
+        }
+      ]
+    }
+  }
+}

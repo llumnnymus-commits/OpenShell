@@ -1,0 +1,90 @@
+{
+  "version": "video-duties-1.0.0",
+  "note": "Ordered, never weighted. The first duty that blocks an action decides; nothing can buy a violation.",
+  "duties": [
+    {
+      "id": "D1",
+      "type": "forbid",
+      "text": "No external publish without admitted rights",
+      "applies": {
+        "eq": [
+          "@action.effect",
+          "external"
+        ]
+      },
+      "when": {
+        "nin": [
+          "@entity.rights",
+          [
+            "owned",
+            "licensed"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "D2",
+      "type": "require",
+      "text": "Every publish writes an audit entry",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "publish"
+        ]
+      },
+      "obligation": "audit_entry"
+    },
+    {
+      "id": "D3",
+      "type": "forbid",
+      "text": "Only a ready video can be published",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "publish"
+        ]
+      },
+      "when": {
+        "ne": [
+          "@entity.status",
+          "ready"
+        ]
+      }
+    },
+    {
+      "id": "D4",
+      "type": "require",
+      "text": "Must attribute: every external action carries an attribution line",
+      "applies": {
+        "eq": [
+          "@action.effect",
+          "external"
+        ]
+      },
+      "must": {
+        "exists": "@action.params.attribution"
+      },
+      "obligation": "attribution"
+    },
+    {
+      "id": "D5",
+      "type": "forbid",
+      "text": "Do not request rights proof for a video whose rights are already admitted",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "request_rights_proof"
+        ]
+      },
+      "when": {
+        "in": [
+          "@entity.rights",
+          [
+            "owned",
+            "licensed"
+          ]
+        ]
+      }
+    }
+  ]
+}

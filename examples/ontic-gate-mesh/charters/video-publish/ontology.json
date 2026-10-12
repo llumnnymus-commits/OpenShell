@@ -1,0 +1,79 @@
+{
+  "registry_version": "video-1.0.0",
+  "note": "Registry for the spec's worked example: publishing a finished video.",
+  "kinds": {
+    "Video": {
+      "status_field": "status",
+      "fields": {
+        "status": {
+          "enum": [
+            "draft",
+            "ready",
+            "published"
+          ]
+        },
+        "rights": {
+          "enum": [
+            "unknown",
+            "owned",
+            "licensed"
+          ]
+        },
+        "license_scope": {
+          "enum": [
+            "none",
+            "streaming",
+            "streaming_monetized"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "max_length": 100
+        },
+        "owner": {
+          "type": "string"
+        },
+        "duration_s": {
+          "type": "number"
+        }
+      },
+      "defaults": {
+        "status": "draft",
+        "rights": "unknown",
+        "license_scope": "none"
+      },
+      "transitions": [
+        {
+          "from": "draft",
+          "to": "ready",
+          "requires": {
+            "in": [
+              "@entity.rights",
+              [
+                "owned",
+                "licensed"
+              ]
+            ]
+          },
+          "text": "ready requires rights of owned or licensed"
+        },
+        {
+          "from": "ready",
+          "to": "draft"
+        },
+        {
+          "from": "ready",
+          "to": "published",
+          "by": "action",
+          "action": "publish"
+        },
+        {
+          "from": "published",
+          "to": "draft",
+          "by": "action",
+          "action": "unpublish"
+        }
+      ]
+    }
+  }
+}

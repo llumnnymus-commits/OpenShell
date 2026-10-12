@@ -1,0 +1,946 @@
+<title>Ontic Gate Mesh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a gate console. Request on the left, the three gates and their exits on the right, ledger below. Black and white; neon only marks a gate's verdict. */
+:root {
+  --bg: #ffffff; --fg: #0b0b0b; --muted: #5d5d60; --line: #d6d6d8; --panel: #f3f3f4; --ink-on-neon: #050505;
+  --pass: #00e1ff; --block: #ff2ec4; --esc: #f2ff00; --chrome-a: #c9cbd0; --chrome-b: #8e9198;
+  --f-display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --r: 3px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #000000; --fg: #f1f1f1; --muted: #9a9aa0; --line: #2b2b2e; --panel: #0e0e10; color-scheme: dark;
+  --chrome-a: #e9eaee; --chrome-b: #6c6f76;
+} }
+:root[data-theme="dark"] {
+  --bg: #000000; --fg: #f1f1f1; --muted: #9a9aa0; --line: #2b2b2e; --panel: #0e0e10; color-scheme: dark;
+  --chrome-a: #e9eaee; --chrome-b: #6c6f76;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--f-body); }
+.wrap { max-width: 1280px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 64px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 800; letter-spacing: .01em; text-transform: uppercase; text-wrap: balance; margin: 0; line-height: 1; }
+h1 { font-size: clamp(34px, 6vw, 58px); }
+h2 { font-size: 26px; }
+h3 { font-size: 18px; font-weight: 600; letter-spacing: .04em; }
+p { margin: 0; }
+code, pre, .mono { font-family: var(--f-mono); font-size: 12.5px; }
+.muted { color: var(--muted); }
+.label { font: 600 11px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.stack { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+.gate, .step, .attempt, .verdict, .term { grid-template-columns: minmax(0, 1fr); }
+.grid2 { display: grid; gap: 20px; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+@media (max-width: 980px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+.panel { border: 1px solid var(--line); border-radius: var(--r); padding: 14px; background: var(--bg); min-width: 0; }
+.sunk { background: var(--panel); border: 0; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+
+header.top { display: grid; gap: 14px; padding-bottom: 14px; border-bottom: 3px solid var(--fg); }
+.mast { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: end; }
+.tagline { max-width: 62ch; color: var(--muted); }
+nav.tabs { display: flex; gap: 0; flex-wrap: wrap; border: 1px solid var(--fg); border-radius: var(--r); overflow: hidden; width: fit-content; max-width: 100%; }
+nav.tabs a { padding: 8px 14px; color: var(--fg); text-decoration: none; font: 600 12px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; border-right: 1px solid var(--fg); }
+nav.tabs a:last-child { border-right: 0; }
+nav.tabs a[aria-current="page"] { background: var(--fg); color: var(--bg); }
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.seg button { border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--fg); padding: 7px 11px; font: 500 12.5px/1 var(--f-body); cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+
+button.btn { border: 1px solid var(--fg); background: var(--fg); color: var(--bg); padding: 9px 14px; border-radius: var(--r); font: 600 13px/1 var(--f-body); cursor: pointer; }
+button.btn.ghost { background: transparent; color: var(--fg); }
+button.btn.small { padding: 6px 10px; font-size: 12px; }
+button.btn:disabled { opacity: .45; cursor: not-allowed; }
+button:focus-visible, a:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--pass); outline-offset: 2px; }
+
+textarea, input[type="text"], input[type="number"], select {
+  width: 100%; background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 8px 10px; font: 12.5px/1.45 var(--f-mono);
+}
+textarea { min-height: 120px; resize: vertical; }
+label.field { display: grid; gap: 6px; }
+
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 2px; font: 600 11px/1.2 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--fg); white-space: nowrap; }
+.chip.pass { background: var(--pass); color: var(--ink-on-neon); border-color: var(--pass); }
+.chip.block { background: var(--block); color: var(--ink-on-neon); border-color: var(--block); }
+.chip.esc { background: var(--esc); color: var(--ink-on-neon); border-color: var(--esc); }
+.chip.stop { background: var(--fg); color: var(--bg); }
+.chip.idle { color: var(--muted); border-color: var(--line); }
+
+.verdict { display: grid; gap: 8px; padding: 16px; border: 2px solid var(--fg); border-radius: var(--r); }
+.verdict .big { font: 800 clamp(30px, 5vw, 46px)/0.95 var(--f-display); text-transform: uppercase; }
+.verdict.pass { border-color: var(--pass); box-shadow: inset 6px 0 0 var(--pass); }
+.verdict.block { border-color: var(--block); box-shadow: inset 6px 0 0 var(--block); }
+.verdict.esc { border-color: var(--esc); box-shadow: inset 6px 0 0 var(--esc); }
+
+.gates { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 760px) { .gates { grid-template-columns: minmax(0, 1fr); } }
+.gate { border: 1px solid var(--line); border-radius: var(--r); padding: 12px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.gate .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.gate ul { margin: 0; padding-left: 16px; }
+.gate li { margin: 2px 0; }
+.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 10px; font: 12px/1.45 var(--f-mono); }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+
+.window { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.wcell { border: 1px dashed var(--line); border-radius: var(--r); padding: 8px 6px; min-height: 62px; display: grid; gap: 4px; align-content: start; min-width: 0; }
+.wcell .hop { font: 600 11px/1 var(--f-mono); color: var(--muted); }
+.wcell .nm { font: 500 12px/1.25 var(--f-mono); overflow-wrap: anywhere; }
+.wcell.gatec { border: 2px solid var(--fg); background: var(--fg); color: var(--bg); }
+.wcell.gatec .hop { color: var(--bg); }
+@media (max-width: 560px) { .window { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+.drift { display: grid; gap: 4px; min-width: 210px; }
+.drift .bar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.drift .tick { height: 12px; background: var(--panel); border: 1px solid var(--line); }
+.drift .tick.zero { border-color: var(--muted); }
+.drift .tick.on { background: linear-gradient(180deg, var(--chrome-a), var(--chrome-b)); border-color: var(--chrome-b); }
+.drift .tick.on.hot { background: var(--block); border-color: var(--block); }
+.drift .tick.on.cold { background: var(--esc); border-color: var(--esc); }
+.drifts { display: flex; gap: 18px; flex-wrap: wrap; }
+
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); }
+table { border-collapse: collapse; width: 100%; font: 12px/1.4 var(--f-mono); font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td { overflow-wrap: anywhere; min-width: 64px; }
+th { font-weight: 600; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; font-size: 11px; background: var(--panel); }
+tr:last-child td { border-bottom: 0; }
+
+pre.json { margin: 0; padding: 10px; background: var(--panel); border-radius: var(--r); overflow-x: auto; max-height: 340px; }
+details > summary { cursor: pointer; font: 600 12px/1.4 var(--f-mono); letter-spacing: .06em; text-transform: uppercase; }
+.note { border-left: 3px solid var(--fg); padding: 6px 10px; background: var(--panel); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 14px; border-radius: var(--r); font: 500 13px/1.3 var(--f-body); max-width: calc(100% - 32px); z-index: 10; }
+.steps { display: grid; gap: 14px; }
+.step { border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: grid; gap: 10px; }
+.step > .row:first-child { justify-content: space-between; }
+.stepno { font: 800 30px/1 var(--f-display); }
+.term { border-top: 1px solid var(--line); padding-top: 8px; display: grid; gap: 6px; }
+.term .opts { display: grid; gap: 4px; }
+.attempt { border: 1px solid var(--line); border-radius: var(--r); padding: 10px; display: grid; gap: 6px; }
+.stream { white-space: pre-wrap; font: 12.5px/1.5 var(--f-mono); color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .verdict { animation: rise .22s ease-out; } @keyframes rise { from { transform: translateY(4px); } to { transform: none; } } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="mast">
+      <div class="stack" style="gap:8px">
+        <span class="label">Concept spec v0.1 · reference build</span>
+        <h1>Ontic Gate Mesh</h1>
+        <p class="tagline">Nothing happens unless it was allowed to exist, is permitted to occur, and survived an attack on its own case. Each request crosses the ontic gate, the deontic filter and the adversarial gate in that order. Exits are stops, not retries.</p>
+      </div>
+      <div class="stack" style="gap:8px; justify-items:start">
+        <span class="label">Charter</span>
+        <div class="seg" id="charterSeg" role="group" aria-label="Charter"></div>
+        <span class="label" id="syncState">Shared ledger: connecting</span>
+      </div>
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <nav class="tabs" id="tabs" aria-label="Sections">
+        <a href="#mesh" data-tab="mesh">Mesh</a>
+        <a href="#chain" data-tab="chain">Task chain</a>
+        <a href="#charter" data-tab="charter">Charter</a>
+        <a href="#ledger" data-tab="ledger">FidGit ledger</a>
+      </nav>
+      <div class="drifts" id="drifts" aria-label="Drift counters"></div>
+    </div>
+  </header>
+
+  <!-- MESH -->
+  <section id="tab-mesh" class="grid2" style="margin-top:20px">
+    <div class="stack">
+      <div class="panel stack">
+        <div class="row" style="justify-content:space-between">
+          <h2>Request</h2>
+          <span class="label" id="charterVer"></span>
+        </div>
+        <label class="field"><span class="label">Scenario</span><select id="preset"></select></label>
+        <p class="muted" id="presetNote"></p>
+        <label class="field"><span class="label">Proposal (a claim about state, never a fact)</span><textarea id="proposal" spellcheck="false" style="min-height:170px"></textarea></label>
+        <div class="row" style="align-items:end">
+          <label class="field" style="flex:1 1 160px"><span class="label">Action</span><select id="action"></select></label>
+          <label class="row" style="gap:6px"><input type="checkbox" id="autoBase" checked> <span>Stamp current version</span></label>
+        </div>
+        <label class="field"><span class="label">Action params</span><textarea id="params" spellcheck="false" style="min-height:76px"></textarea></label>
+        <label class="field"><span class="label">Upstream trace (comma separated, oldest first)</span><input type="text" id="trace"></label>
+        <div class="row" style="justify-content:space-between">
+          <div class="stack" style="gap:6px">
+            <span class="label">Adversary</span>
+            <div class="seg" id="advSeg" role="group" aria-label="Adversary">
+              <button type="button" data-adv="rules" aria-pressed="true">Charter rules</button>
+              <button type="button" data-adv="claude" aria-pressed="false">Claude</button>
+            </div>
+          </div>
+          <div class="row">
+            <button class="btn ghost" id="resetMesh" type="button">Reset mesh</button>
+            <button class="btn" id="runBtn" type="button">Run through gates</button>
+          </div>
+        </div>
+        <p class="muted" id="advNote">Rules mode reads the charter's objection list. Claude mode calls a separate model with only admitted facts.</p>
+      </div>
+
+      <div class="panel stack">
+        <h3>World · admitted entities</h3>
+        <div id="world"></div>
+      </div>
+
+      <div class="panel stack">
+        <h3>Quarantine review queue</h3>
+        <p class="muted">Quarantined claims never move forward. A reviewer can add a value to the registry as a versioned edit, then resubmit.</p>
+        <label class="field"><span class="label">Reviewer name (required for edits and overrides)</span><input type="text" id="approver" placeholder="e.g. Zach"></label>
+        <div id="quarantine"></div>
+      </div>
+    </div>
+
+    <div class="stack">
+      <div id="verdict" class="verdict"></div>
+      <div class="panel stack">
+        <div class="row" style="justify-content:space-between"><h3>Gates</h3><span class="label">cheapest first · first two need no model call</span></div>
+        <div class="gates" id="gates"></div>
+      </div>
+      <div class="panel stack">
+        <div class="row" style="justify-content:space-between"><h3>n8n ±3 window</h3><span class="label" id="beyond"></span></div>
+        <div class="window" id="window"></div>
+        <p class="muted">−3 to −1 is provenance from the item's trace. +1 to +3 are declared consumers from the workflow manifest. Anything farther travels in the passport.</p>
+      </div>
+      <div class="panel stack">
+        <div class="row" style="justify-content:space-between">
+          <h3>Passport</h3>
+          <button class="btn ghost small" id="copyPassport" type="button">Copy</button>
+        </div>
+        <pre class="json" id="passport">Run a request to issue a passport.</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- CHAIN -->
+  <section id="tab-chain" class="stack" style="margin-top:20px" hidden>
+    <div class="panel stack sunk">
+      <h2>Litr8 → BaceSpec → DeStraint → FulRR → FidGit</h2>
+      <p class="muted" style="max-width:72ch">One task's life: intent, authority, execution, record. Litr8 can think but not act. BaceSpec freezes for the run. Grants open freedom only below the duties. FulRR fixes only named failures, up to an attempt cap. Every step writes to the same hash chain as the mesh.</p>
+      <div class="row">
+        <span class="label">Executor and reviewer</span>
+        <div class="seg" id="execSeg" role="group" aria-label="Executor">
+          <button type="button" data-exec="template" aria-pressed="true">Deterministic template</button>
+          <button type="button" data-exec="claude" aria-pressed="false">Claude</button>
+        </div>
+      </div>
+    </div>
+    <div class="steps" id="steps"></div>
+  </section>
+
+  <!-- CHARTER -->
+  <section id="tab-charter" class="stack" style="margin-top:20px" hidden>
+    <div class="panel stack sunk">
+      <h2>Charter</h2>
+      <p class="muted" id="charterMeta" style="max-width:80ch"></p>
+      <p class="muted" style="max-width:80ch">Changes apply only as a versioned edit with a named reviewer. Relaxing a duty is never an in-run override.</p>
+    </div>
+    <div class="grid2" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))">
+      <label class="field panel"><span class="label">ontology.json · kinds, fields, legal transitions</span><textarea id="edOntology" spellcheck="false" style="min-height:360px"></textarea></label>
+      <label class="field panel"><span class="label">duties.json · ordered rules</span><textarea id="edDuties" spellcheck="false" style="min-height:360px"></textarea></label>
+      <label class="field panel"><span class="label">gate-policy.json · gate-class actions, objections, workflow</span><textarea id="edPolicy" spellcheck="false" style="min-height:360px"></textarea></label>
+    </div>
+    <div class="panel stack">
+      <div class="row">
+        <label class="field" style="flex:1 1 220px"><span class="label">Reviewer</span><input type="text" id="charterApprover" placeholder="Name of the person approving this edit"></label>
+        <button class="btn ghost" id="validateCharter" type="button">Validate</button>
+        <button class="btn" id="applyCharter" type="button">Apply versioned edit</button>
+        <button class="btn ghost" id="saveCharter" type="button">Save charter files</button>
+      </div>
+      <div id="charterMsg"></div>
+    </div>
+    <div class="panel stack">
+      <h3>Import an n8n workflow export</h3>
+      <p class="muted">Paste the JSON from n8n's Download. The manifest of each node's next three consumers is built from its connections.</p>
+      <textarea id="n8nIn" spellcheck="false" placeholder='{"nodes":[{"name":"Render"}],"connections":{"Render":{"main":[[{"node":"Gate"}]]}}}'></textarea>
+      <div class="row">
+        <label class="field" style="flex:1 1 200px"><span class="label">Gate node in that workflow</span><input type="text" id="n8nGate" placeholder="Name of the node where OGM runs"></label>
+        <button class="btn ghost" id="n8nPreview" type="button">Build manifest</button>
+        <button class="btn" id="n8nApply" type="button">Use as workflow</button>
+      </div>
+      <pre class="json" id="n8nOut" hidden></pre>
+    </div>
+  </section>
+
+  <!-- LEDGER -->
+  <section id="tab-ledger" class="stack" style="margin-top:20px" hidden>
+    <div class="panel stack">
+      <div class="row" style="justify-content:space-between">
+        <h2>FidGit ledger</h2>
+        <div class="row">
+          <button class="btn ghost small" id="tamper" type="button">Tamper test</button>
+          <button class="btn ghost small" id="saveLedger" type="button">Save ledger JSON</button>
+          <button class="btn small" id="verifyBtn" type="button">Verify chain</button>
+        </div>
+      </div>
+      <p class="muted">Append-only. Each entry stores the previous state, the new state, the reason, the requirement it addresses, the checks and the outcome, chained by SHA-256.</p>
+      <div id="verifyOut"></div>
+      <div class="row"><span class="label">Stage</span><select id="stageFilter" style="width:auto"></select></div>
+      <div class="tablewrap"><table><thead><tr><th>#</th><th>Stage</th><th>Outcome</th><th>Reason</th><th>Hash</th></tr></thead><tbody id="ledgerRows"></tbody></table></div>
+    </div>
+    <div class="panel stack">
+      <h3>Objection track record</h3>
+      <p class="muted">Mark which objections later proved right. This is how adversary collusion shows up over time.</p>
+      <div id="objections"></div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+/*__OGM_ENGINE__*/
+</script>
+<script>
+const CHARTERS = /*__CHARTERS__*/null;
+const PRESETS = /*__PRESETS__*/null;
+
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const J = (v) => JSON.stringify(v, null, 2);
+  const short = (h) => (h ? h.slice(0, 10) : "");
+  const toast = (msg) => { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 2600); };
+
+  const state = {
+    key: "video-publish",
+    meshes: {},
+    last: {},
+    adv: "rules",
+    exec: "template",
+    busy: false,
+    chain: null,
+    caps: { sample: null, db: null, downloads: null },
+    remoteVersion: {},
+  };
+
+  // ---------- capabilities ----------
+  async function boot() {
+    for (const k of Object.keys(CHARTERS)) state.meshes[k] = OGM.createMesh(CHARTERS[k]);
+    renderAll();
+    if (!window.claude || !window.claude.use) { $("syncState").textContent = "Shared ledger: not available here (local only)"; return; }
+    claude.use("sample").then((s) => { state.caps.sample = s; renderAdvNote(); });
+    claude.use("downloads").then((d) => { state.caps.downloads = d; });
+    claude.use("db").then((db) => {
+      state.caps.db = db;
+      if (!db) { $("syncState").textContent = "Shared ledger: sign in to save (local only)"; return; }
+      $("syncState").textContent = "Shared ledger: loading";
+      for (const k of Object.keys(CHARTERS)) subscribe(k);
+    });
+  }
+
+  function subscribe(k) {
+    state.caps.db.doc("meshes/" + k).onSnapshot((snap) => {
+      if (!snap.exists) { if (k === state.key) $("syncState").textContent = "Shared ledger: empty, first run will save"; return; }
+      const d = snap.data();
+      if (snap.metadata.hasPendingWrites || state.busy) return;
+      if (d.rev && d.rev === state.remoteVersion[k]) return;
+      try {
+        state.meshes[k] = hydrate(d.state);
+        state.remoteVersion[k] = d.rev;
+        if (k === state.key) { $("syncState").textContent = "Shared ledger: synced · " + new Date(d.saved_at).toLocaleString(); renderAll(); }
+      } catch (e) { $("syncState").textContent = "Shared ledger: stored state unreadable (" + e.message + ")"; }
+    }, (e) => { $("syncState").textContent = "Shared ledger: " + e.code; });
+  }
+
+  function dehydrate(m) {
+    return { charter: m.charter, world: m.world, drift: m.drift, quarantine: m.quarantine, fidgit: m.fidgit.entries, objectionRecord: m.objectionRecord };
+  }
+  function hydrate(s) {
+    const m = OGM.createMesh(s.charter, { fidgit: s.fidgit });
+    m.world = s.world; m.drift = s.drift; m.quarantine = s.quarantine || []; m.objectionRecord = s.objectionRecord || [];
+    return m;
+  }
+
+  async function save(k = state.key) {
+    const db = state.caps.db;
+    if (!db) return;
+    const rev = Date.now() + "-" + Math.random().toString(36).slice(2, 7);
+    const body = { state: dehydrate(state.meshes[k]), saved_at: new Date().toISOString(), rev };
+    const size = JSON.stringify(body).length;
+    if (size > 240000) { $("syncState").textContent = "Shared ledger: full (" + Math.round(size / 1024) + " KiB). Save the ledger JSON, then Reset mesh."; return; }
+    try {
+      state.remoteVersion[k] = rev;
+      await db.doc("meshes/" + k).set(body);
+      if (k === state.key) $("syncState").textContent = "Shared ledger: saved · " + new Date().toLocaleTimeString();
+    } catch (e) {
+      $("syncState").textContent = e.code === "invalid_argument" ? "Shared ledger: read-only for you (local changes only)" : "Shared ledger: not saved (" + e.code + ")";
+    }
+  }
+
+  const mesh = () => state.meshes[state.key];
+
+  // ---------- header ----------
+  function renderCharterSeg() {
+    $("charterSeg").innerHTML = Object.keys(CHARTERS).map((k) =>
+      `<button type="button" data-k="${k}" aria-pressed="${k === state.key}">${esc(CHARTERS[k].label)}</button>`).join("");
+  }
+  $("charterSeg").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-k]"); if (!b || state.busy) return;
+    state.key = b.dataset.k; state.chain = null; renderAll(); loadPreset(0);
+  });
+
+  function renderDrift() {
+    const d = mesh().drift;
+    $("drifts").innerHTML = ["ontic", "deontic", "adversarial"].map((g) => {
+      const v = d[g];
+      const ticks = [-3, -2, -1, 0, 1, 2, 3].map((t) => {
+        const on = (v > 0 && t > 0 && t <= v) || (v < 0 && t < 0 && t >= v);
+        const cls = ["tick", t === 0 ? "zero" : "", on ? "on" : "", on && v === 3 ? "hot" : "", on && v === -3 ? "cold" : ""].join(" ");
+        return `<span class="${cls}" title="${t}"></span>`;
+      }).join("");
+      return `<div class="drift"><div class="row" style="justify-content:space-between"><span class="label">${g} drift</span><span class="mono">${v > 0 ? "+" : ""}${v}</span></div><div class="bar" aria-label="${g} drift ${v}">${ticks}</div></div>`;
+    }).join("");
+  }
+
+  // ---------- tabs ----------
+  const TABS = ["mesh", "chain", "charter", "ledger"];
+  function showTab() {
+    const t = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "mesh";
+    for (const x of TABS) $("tab-" + x).hidden = x !== t;
+    for (const a of document.querySelectorAll("#tabs a")) a.setAttribute("aria-current", a.dataset.tab === t ? "page" : "false");
+    if (t === "ledger") renderLedger();
+    if (t === "charter") renderCharterEditors();
+    if (t === "chain") renderChain();
+  }
+  window.addEventListener("hashchange", showTab);
+
+  // ---------- request form ----------
+  function renderPresetList() {
+    const list = PRESETS[state.key];
+    $("preset").innerHTML = list.map((p, i) => `<option value="${i}">${esc(p.label)}</option>`).join("");
+    const a = mesh().charter.policy.actions;
+    $("action").innerHTML = `<option value="">(none: admit state only)</option>` + Object.keys(a).map((n) => `<option value="${n}">${n} · ${a[n].kind}${(mesh().charter.policy.gate_class || []).includes(n) ? " · gate-class" : ""}</option>`).join("");
+  }
+  function loadPreset(i) {
+    const p = PRESETS[state.key][i];
+    $("preset").value = String(i);
+    $("presetNote").textContent = p.note || "";
+    $("proposal").value = J(p.proposal);
+    $("action").value = p.action ? p.action.name : "";
+    $("params").value = J(p.action ? p.action.params : {});
+    $("trace").value = (p.trace || []).join(", ");
+  }
+  $("preset").addEventListener("change", (e) => loadPreset(Number(e.target.value)));
+  $("action").addEventListener("change", () => {
+    const a = mesh().charter.policy.actions[$("action").value];
+    if (!a) return;
+    const d = {}; for (const [k, v] of Object.entries(a.params || {})) d[k] = "default" in v ? v.default : v.type === "string" ? "" : null;
+    $("params").value = J(d);
+  });
+
+  $("advSeg").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-adv]"); if (!b) return;
+    state.adv = b.dataset.adv;
+    for (const x of $("advSeg").children) x.setAttribute("aria-pressed", String(x === b));
+    renderAdvNote();
+  });
+  function renderAdvNote() {
+    const n = $("advNote");
+    if (state.adv === "claude" && !state.caps.sample) n.textContent = "Claude is not reachable in this view. Runs fall back to closed: the gate fails rather than passing unchecked.";
+    else if (state.adv === "claude") n.textContent = "Claude mode: a separate model (complex tier) gets only admitted facts, duties and the case. Objections citing anything else are discarded. Each call uses your Claude usage.";
+    else n.textContent = "Rules mode reads the charter's objection list. Deterministic, no model call.";
+  }
+
+  // ---------- run ----------
+  function claudeAdversary(brief) {
+    const prompt = [
+      "You are the ADVERSARY seat in an Ontic Gate Mesh adversarial gate. A separate proponent argues the action below may proceed. Try to refute the case.",
+      "Rules:",
+      "- Use ONLY the admitted facts, the action and its params, and the duties below. Anything else is inadmissible; objections citing it are discarded.",
+      "- Each objection lists `cites`: the exact keys it relies on, from facts (e.g. \"entity.rights\") or \"action.params.<name>\".",
+      "- severity \"partial\": the objection goes away if the action is narrowed. Give `narrowing` as {param: value} using only these narrowable params and their allowed values: " + JSON.stringify(brief.narrowable.map((p) => ({ param: p, spec: brief.param_spec[p] }))),
+      "- severity \"full\": no narrowing fixes it. severity \"escalate\": a human must decide.",
+      "- Do not repeat an objection the current params already answer. If the case holds, return an empty list.",
+      "Reference objections the charter already knows (you may use, refine or ignore them): " + JSON.stringify(brief.objection_hints),
+      "",
+      "Round: " + brief.round,
+      "Kind: " + brief.kind,
+      "Admitted facts: " + JSON.stringify(brief.facts),
+      "Action: " + JSON.stringify(brief.action),
+      "Duties (ordered): " + JSON.stringify(brief.duties),
+      "Proponent case: " + JSON.stringify(brief.case),
+      "",
+      'Reply with only JSON: {"objections":[{"id":"M1","text":"...","severity":"partial|full|escalate","cites":["entity.x"],"narrowing":{"param":"value"}|null}]}',
+    ].join("\n");
+    return state.caps.sample.json(prompt, { modelTier: "complex" }).then((r) => (r && Array.isArray(r.objections) ? r.objections : []).map((o) => ({ ...o, source: "claude" })));
+  }
+
+  $("runBtn").addEventListener("click", run);
+  async function run() {
+    if (state.busy) return;
+    let proposal, params;
+    try { proposal = JSON.parse($("proposal").value); } catch (e) { return toast("The proposal isn't valid JSON: " + e.message); }
+    try { params = JSON.parse($("params").value || "{}"); } catch (e) { return toast("The params aren't valid JSON: " + e.message); }
+    const m = mesh();
+    const cur = m.world.entities[proposal.entity_id];
+    if ($("autoBase").checked) { if (cur) proposal.base_version = cur.version; else delete proposal.base_version; $("proposal").value = J(proposal); }
+    for (const k of Object.keys(params)) if (params[k] === null || params[k] === "") delete params[k];
+    const name = $("action").value;
+    const trace = $("trace").value.split(",").map((s) => s.trim()).filter(Boolean).map((node) => ({ node }));
+    const opts = {};
+    if (state.adv === "claude") {
+      opts.adversary = state.caps.sample ? claudeAdversary : async () => { throw new Error("Claude is not reachable in this view"); };
+    }
+    state.busy = true; $("runBtn").disabled = true; $("runBtn").textContent = state.adv === "claude" ? "Adversary thinking…" : "Running…";
+    try {
+      const r = await OGM.runMesh(m, { proposal, action: name ? { name, params } : null, item: { id: "item-" + Date.now().toString(36), trace } }, opts);
+      state.last[state.key] = r;
+    } catch (e) {
+      toast("Run failed: " + e.message);
+    } finally {
+      state.busy = false; $("runBtn").disabled = false; $("runBtn").textContent = "Run through gates";
+    }
+    renderAll();
+    save();
+  }
+
+  $("resetMesh").addEventListener("click", () => {
+    if ($("resetMesh").dataset.armed !== "1") {
+      $("resetMesh").dataset.armed = "1"; $("resetMesh").textContent = "Confirm reset (clears world and ledger)";
+      setTimeout(() => { $("resetMesh").dataset.armed = ""; $("resetMesh").textContent = "Reset mesh"; }, 4000);
+      return;
+    }
+    $("resetMesh").dataset.armed = ""; $("resetMesh").textContent = "Reset mesh";
+    state.meshes[state.key] = OGM.createMesh(CHARTERS[state.key]);
+    state.last[state.key] = null; state.chain = null;
+    renderAll(); save(); toast("Mesh reset to the shipped charter.");
+  });
+
+  // ---------- render result ----------
+  const EXIT = {
+    pass: ["Pass", "pass"], admitted: ["Admitted", "pass"], deontic_block: ["Blocked", "block"], deontic_halt: ["Halt", "block"],
+    adversarial_fail: ["Fail", "block"], ontic_stop: ["Stopped", "stop"], escalate: ["Escalate", "esc"],
+  };
+  function renderResult() {
+    const r = state.last[state.key];
+    const v = $("verdict");
+    if (!r) {
+      v.className = "verdict";
+      v.innerHTML = `<span class="label">Verdict</span><div class="big">Waiting</div><p class="muted">Pick a scenario and run it. The worked example from the spec is scenario 1 then 2.</p>`;
+      $("gates").innerHTML = ["Ontic gate", "Deontic filter", "Adversarial gate"].map((g) => `<div class="gate"><div class="head"><h3>${g}</h3><span class="chip idle">idle</span></div></div>`).join("");
+      $("window").innerHTML = windowCells(null); $("passport").textContent = "Run a request to issue a passport."; $("beyond").textContent = "";
+      return;
+    }
+    const [word, cls] = EXIT[r.exit] || [r.exit, "stop"];
+    v.className = "verdict " + (cls === "stop" ? "" : cls);
+    const over = (r.exit === "deontic_block" || r.exit === "adversarial_fail") ? `<div class="row"><button class="btn ghost small" id="overrideBtn" type="button">Mark this block unnecessary</button><span class="muted">Moves ${r.exit === "deontic_block" ? "deontic" : "adversarial"} drift −1. Needs a reviewer name.</span></div>` : "";
+    v.innerHTML = `<div class="row" style="justify-content:space-between"><span class="label">Verdict · exit ${esc(r.exit)}</span><span class="chip ${cls}">${esc(word)}</span></div><div class="big">${esc(word)}</div><p>${esc(r.summary)}</p>${(r.notes || []).filter((n) => n.alarm).map((n) => `<p class="note mono">${esc(n.gate)}: ${esc(n.alarm)}</p>`).join("")}${over}`;
+    const ob = $("overrideBtn");
+    if (ob) ob.onclick = () => {
+      const who = $("approver").value.trim(); if (!who) return toast("Add your name in the reviewer field first.");
+      OGM.humanOverride(mesh(), r.exit === "deontic_block" ? "deontic" : "adversarial", who, "block judged unnecessary after run " + r.item.id);
+      renderAll(); save(); toast("Override recorded in FidGit.");
+    };
+    $("gates").innerHTML = gateOntic(r.gates.ontic) + gateDeontic(r.gates.deontic) + gateAdv(r.gates.adversarial, r);
+    $("window").innerHTML = windowCells(r.window);
+    $("beyond").textContent = r.window.beyond_upstream ? r.window.beyond_upstream + " older hop(s) carried by passport" : "";
+    $("passport").textContent = J(r.passport);
+  }
+
+  function gateOntic(g) {
+    if (!g) return "";
+    const chip = g.stopped ? `<span class="chip stop">stopped</span>` : g.quarantine.length ? `<span class="chip esc">partial</span>` : `<span class="chip pass">admitted</span>`;
+    const body = g.stopped ? `<p>${esc(g.reason)}</p>` :
+      `<dl class="kv"><dt>entity</dt><dd>${esc(g.delta.entity_id)}</dd><dt>version</dt><dd>v${g.delta.version_token}${g.delta.base_version != null ? " (from v" + g.delta.base_version + ")" : ""}</dd><dt>registry</dt><dd>${esc(g.delta.registry_version)}</dd><dt>set</dt><dd>${esc(JSON.stringify(g.delta.set))}</dd></dl>`;
+    const q = g.quarantine.length ? `<span class="label">Quarantined</span><ul>${g.quarantine.map((x) => `<li><code>${esc(x.path)}=${esc(JSON.stringify(x.value))}</code> · ${esc(x.reason)}</li>`).join("")}</ul>` : "";
+    return `<div class="gate"><div class="head"><h3>1 · Ontic gate</h3>${chip}</div>${body}${q}</div>`;
+  }
+  function gateDeontic(g) {
+    if (!g) return `<div class="gate"><div class="head"><h3>2 · Deontic filter</h3><span class="chip idle">not reached</span></div></div>`;
+    const chip = g.halt ? `<span class="chip block">halt</span>` : g.requested_permitted ? `<span class="chip pass">permitted</span>` : `<span class="chip block">blocked</span>`;
+    const perm = g.permitted.map((p) => `<li><b>${esc(p.action)}</b>${p.obligations.length ? " · must " + p.obligations.map((o) => esc(o.obligation) + " (" + esc(o.duty) + ")").join(", ") : ""}</li>`).join("");
+    const blk = g.blocked.map((b) => `<li><b>${esc(b.action)}</b> · ${esc(b.duty)}${b.cite ? " " + esc(b.cite) : ""}: ${esc(b.text)}</li>`).join("");
+    return `<div class="gate"><div class="head"><h3>2 · Deontic filter</h3>${chip}</div><span class="label">Permitted set</span><ul>${perm || "<li>empty</li>"}</ul>${blk ? `<span class="label">Blocked</span><ul>${blk}</ul>` : ""}</div>`;
+  }
+  function gateAdv(g, r) {
+    if (!g) return `<div class="gate"><div class="head"><h3>3 · Adversarial gate</h3><span class="chip idle">not reached</span></div></div>`;
+    const cls = g.result === "pass" ? "pass" : g.result === "escalate" ? "esc" : "block";
+    const rounds = (g.rounds || []).map((rd) => {
+      const claims = rd.case ? rd.case.claims.map((c) => `<li>${c.holds ? "✓" : "✗"} ${esc(c.claim)}${c.required ? "" : " <span class='muted'>(optional)</span>"}</li>`).join("") : "";
+      const obs = rd.objections.length ? rd.objections.map((o) => `<li>${o.discarded ? "<s>" : ""}<b>${esc(o.id)}</b> [${esc(o.severity)} · ${esc(o.source || "model")}] ${esc(o.text)}${o.discarded ? "</s> · discarded: " + esc(o.why) : ""}${o.narrowing && !o.discarded ? " → narrow " + esc(JSON.stringify(o.narrowing)) : ""}</li>`).join("") : "<li>No objection stood.</li>";
+      return `<details ${rd.round === 1 ? "open" : ""}><summary>Round ${rd.round} · ${esc(JSON.stringify(rd.action.params))}</summary><span class="label">Proponent case</span><ul>${claims}</ul><span class="label">Adversary</span><ul>${obs}</ul>${rd.error ? `<p class="note">${esc(rd.error)}</p>` : ""}</details>`;
+    }).join("");
+    const exec = r.executed ? `<p class="note mono">Executed ${esc(r.executed.action.name)} ${esc(JSON.stringify(r.executed.action.params))}</p>` : "";
+    return `<div class="gate"><div class="head"><h3>3 · Adversarial gate</h3><span class="chip ${cls}">${esc(g.result)}</span></div><p>${esc(g.reason)}</p>${rounds}${exec}</div>`;
+  }
+  function windowCells(w) {
+    const up = w ? w.upstream : [];
+    const down = w ? w.downstream : [];
+    const cells = [];
+    for (let i = 3; i >= 1; i--) { const t = up[up.length - i]; cells.push(`<div class="wcell"><span class="hop">−${i}</span><span class="nm">${t ? esc(t.node) : "·"}</span></div>`); }
+    cells.push(`<div class="wcell gatec"><span class="hop">0</span><span class="nm">${esc(mesh().charter.policy.gate_node)}</span></div>`);
+    for (let i = 1; i <= 3; i++) { const d = down[i - 1]; cells.push(`<div class="wcell"><span class="hop">+${i}</span><span class="nm">${d ? esc(d.node) : "·"}</span></div>`); }
+    return cells.join("");
+  }
+
+  function renderWorld() {
+    const ents = Object.entries(mesh().world.entities);
+    $("world").innerHTML = ents.length ? `<div class="tablewrap"><table><thead><tr><th>Entity</th><th>Kind</th><th>v</th><th>Fields</th></tr></thead><tbody>${ents.map(([id, e]) => `<tr><td>${esc(id)}</td><td>${esc(e.kind)}</td><td>${e.version}</td><td>${esc(JSON.stringify(e.fields))}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">Nothing exists yet. Admitted proposals appear here with their version token.</p>`;
+  }
+  function renderQuarantine() {
+    const q = mesh().quarantine;
+    if (!q.length) { $("quarantine").innerHTML = `<p class="muted">Queue is empty.</p>`; return; }
+    const ont = mesh().charter.ontology;
+    $("quarantine").innerHTML = `<div class="tablewrap"><table><thead><tr><th>Entity</th><th>Claim</th><th>Reason</th><th></th></tr></thead><tbody>${q.map((x, i) => {
+      const e = mesh().world.entities[x.entity_id];
+      const fd = e && ont.kinds[e.kind] && ont.kinds[e.kind].fields[x.path];
+      const canAdd = x.status === "open" && fd && fd.enum && typeof x.value === "string" && !fd.enum.includes(x.value);
+      return `<tr><td>${esc(x.entity_id)}</td><td><code>${esc(x.path)}=${esc(JSON.stringify(x.value))}</code></td><td>${esc(x.reason)}<br><span class="muted">${esc(x.status)}</span></td><td>${canAdd ? `<button class="btn ghost small" data-q="${i}" type="button">Add to registry</button>` : ""}</td></tr>`;
+    }).join("")}</tbody></table></div>`;
+  }
+  $("quarantine").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-q]"); if (!b) return;
+    const who = $("approver").value.trim(); if (!who) return toast("Add your name in the reviewer field first.");
+    const x = mesh().quarantine[Number(b.dataset.q)];
+    const kind = mesh().world.entities[x.entity_id].kind;
+    try { OGM.amendRegistry(mesh(), { kind, field: x.path, addEnum: x.value, approver: who, reason: "Quarantine review of " + x.entity_id }); }
+    catch (err) { return toast(err.message); }
+    renderAll(); save(); toast("Registry now " + mesh().charter.ontology.registry_version + ". Resubmit the proposal.");
+  });
+
+  $("copyPassport").addEventListener("click", () => {
+    const t = $("passport").textContent;
+    navigator.clipboard.writeText(t).then(() => toast("Passport copied."), () => { const r = document.createRange(); r.selectNodeContents($("passport")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast("Selected. Copy it with your device's copy command."); });
+  });
+
+  // ---------- ledger ----------
+  function renderLedger() {
+    const f = mesh().fidgit.entries;
+    const stages = [...new Set(f.map((e) => e.stage))];
+    const cur = $("stageFilter").value;
+    $("stageFilter").innerHTML = `<option value="">All (${f.length})</option>` + stages.map((s) => `<option ${s === cur ? "selected" : ""}>${esc(s)}</option>`).join("");
+    const rows = f.filter((e) => !$("stageFilter").value || e.stage === $("stageFilter").value).slice().reverse();
+    $("ledgerRows").innerHTML = rows.length ? rows.map((e) => `<tr><td>${e.seq}</td><td>${esc(e.stage)}</td><td><span class="chip ${outcomeCls(e.outcome)}">${esc(e.outcome)}</span></td><td>${esc(e.reason)}${e.checks && e.checks.length ? `<details><summary>checks</summary><pre class="json">${esc(J(e.checks))}</pre></details>` : ""}${e.new_state ? `<details><summary>new state</summary><pre class="json">${esc(J(e.new_state))}</pre></details>` : ""}</td><td title="${esc(e.hash)}">${short(e.hash)}<br><span class="muted">← ${short(e.prev_hash)}</span></td></tr>`).join("") : `<tr><td colspan="5" class="muted">No entries yet. Every gate run, grant and repair appends here.</td></tr>`;
+    const recs = mesh().objectionRecord;
+    $("objections").innerHTML = recs.length ? `<div class="tablewrap"><table><thead><tr><th>Objection</th><th>Source</th><th>Item</th><th>Later proved</th></tr></thead><tbody>${recs.map((o, i) => `<tr><td><b>${esc(o.id)}</b> ${esc(o.text)}</td><td>${esc(o.source)}</td><td>${esc(o.run_item)}</td><td><div class="seg"><button type="button" data-o="${i}" data-v="right" aria-pressed="${o.proved === "right"}">Right</button><button type="button" data-o="${i}" data-v="wrong" aria-pressed="${o.proved === "wrong"}">Wrong</button></div></td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">No objections recorded yet.</p>`;
+  }
+  const outcomeCls = (o) => /pass|admitted|permitted|done|granted|frozen|promoted|captured|spec-candidate|amended|recorded/.test(o) ? "pass" : /escalate|partial|drift|not-ready/.test(o) ? "esc" : /stop/.test(o) ? "stop" : "block";
+  $("stageFilter").addEventListener("change", renderLedger);
+  $("objections").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-o]"); if (!b) return;
+    const o = mesh().objectionRecord[Number(b.dataset.o)];
+    o.proved = o.proved === b.dataset.v ? null : b.dataset.v;
+    renderLedger(); save();
+  });
+  $("verifyBtn").addEventListener("click", () => {
+    const v = mesh().fidgit.verify();
+    $("verifyOut").innerHTML = v.ok ? `<p class="note"><span class="chip pass">intact</span> ${v.length} entries · head <code>${short(v.head)}</code></p>` : `<p class="note"><span class="chip block">broken</span> entry ${v.at}: ${esc(v.problem)}</p>`;
+  });
+  $("tamper").addEventListener("click", () => {
+    const f = mesh().fidgit.entries;
+    if (!f.length) return toast("Run something first so there is a chain to tamper with.");
+    const copy = new OGM.FidGit(f);
+    const i = Math.floor(f.length / 2);
+    copy.entries[i].reason = copy.entries[i].reason + " (edited after the fact)";
+    const v = copy.verify();
+    $("verifyOut").innerHTML = `<p class="note">Edited entry ${i} in a scratch copy. Verify says: <span class="chip ${v.ok ? "pass" : "block"}">${v.ok ? "intact" : "broken"}</span> ${v.ok ? "" : "at entry " + v.at + ": " + esc(v.problem)}. The real ledger is unchanged.</p>`;
+  });
+  async function offerFile(filename, data) {
+    const dl = state.caps.downloads;
+    if (!dl) return toast("Saving files isn't available in this view.");
+    try { await dl.save({ filename, data }); } catch (e) { if (e && e.code !== "cancelled" && e.code !== "declined") toast("Not saved: " + (e.message || e.code)); }
+  }
+  $("saveLedger").addEventListener("click", () => offerFile(`fidgit-${state.key}.json`, J({ charter: state.key, verify: mesh().fidgit.verify(), entries: mesh().fidgit.entries })));
+
+  // ---------- charter ----------
+  function renderCharterEditors() {
+    const c = mesh().charter;
+    $("charterMeta").textContent = [CHARTERS[state.key].about, c.ontology.disclaimer].filter(Boolean).join(" ");
+    if (document.activeElement && document.activeElement.tagName === "TEXTAREA" && document.activeElement.id.startsWith("ed")) return;
+    $("edOntology").value = J(c.ontology); $("edDuties").value = J(c.duties); $("edPolicy").value = J(c.policy);
+  }
+  function readEditors() {
+    return { ontology: JSON.parse($("edOntology").value), duties: JSON.parse($("edDuties").value), policy: JSON.parse($("edPolicy").value) };
+  }
+  $("validateCharter").addEventListener("click", () => {
+    try { const p = OGM.validateCharter(readEditors()); $("charterMsg").innerHTML = p.length ? `<p class="note"><span class="chip block">invalid</span><br>${p.map(esc).join("<br>")}</p>` : `<p class="note"><span class="chip pass">valid</span></p>`; }
+    catch (e) { $("charterMsg").innerHTML = `<p class="note"><span class="chip block">not JSON</span> ${esc(e.message)}</p>`; }
+  });
+  $("applyCharter").addEventListener("click", () => {
+    const who = $("charterApprover").value.trim();
+    if (!who) return toast("Name the reviewer approving this edit.");
+    let next; try { next = readEditors(); } catch (e) { return toast("Not valid JSON: " + e.message); }
+    const p = OGM.validateCharter(next);
+    if (p.length) { $("charterMsg").innerHTML = `<p class="note"><span class="chip block">invalid</span><br>${p.map(esc).join("<br>")}</p>`; return; }
+    const m = mesh(); const prev = m.charter;
+    const bump = (a, b, v) => (OGM.stableStringify(a) === OGM.stableStringify(b) ? v : v.replace(/(\d+)$/, (n) => String(Number(n) + 1)));
+    const nb = (o) => { const c = JSON.parse(JSON.stringify(o)); return c; };
+    const o2 = nb(next.ontology), d2 = nb(next.duties), p2 = nb(next.policy);
+    const strip = (x, k) => { const c = { ...x }; delete c[k]; return c; };
+    o2.registry_version = bump(strip(prev.ontology, "registry_version"), strip(o2, "registry_version"), prev.ontology.registry_version);
+    d2.version = bump(strip(prev.duties, "version"), strip(d2, "version"), prev.duties.version);
+    p2.version = bump(strip(prev.policy, "version"), strip(p2, "version"), prev.policy.version);
+    m.fidgit.append({ stage: "charter", prev_state: { registry: prev.ontology.registry_version, duties: prev.duties.version, policy: prev.policy.version }, new_state: { registry: o2.registry_version, duties: d2.version, policy: p2.version }, reason: "Versioned charter edit", requirement: "human approval", checks: [{ approver: who }], outcome: "amended" });
+    m.charter = { ontology: o2, duties: d2, policy: p2 };
+    m.manifest = OGM.buildManifest(p2.workflow);
+    renderAll(); save();
+    $("charterMsg").innerHTML = `<p class="note"><span class="chip pass">applied</span> registry ${esc(o2.registry_version)} · duties ${esc(d2.version)} · policy ${esc(p2.version)}</p>`;
+  });
+  $("saveCharter").addEventListener("click", async () => {
+    const c = mesh().charter;
+    await offerFile(`${state.key}-ontology.json`, J(c.ontology));
+    await offerFile(`${state.key}-duties.json`, J(c.duties));
+    await offerFile(`${state.key}-gate-policy.json`, J(c.policy));
+  });
+  function n8nRead() {
+    const wf = JSON.parse($("n8nIn").value);
+    const norm = OGM.normalizeWorkflow(wf);
+    if (!norm.nodes.length) throw new Error("No nodes found. Paste the full workflow export.");
+    return { wf, norm, manifest: OGM.buildManifest(wf) };
+  }
+  $("n8nPreview").addEventListener("click", () => {
+    try { const { manifest } = n8nRead(); $("n8nOut").hidden = false; $("n8nOut").textContent = J(manifest); }
+    catch (e) { toast("Couldn't read that export: " + e.message); }
+  });
+  $("n8nApply").addEventListener("click", () => {
+    const who = $("charterApprover").value.trim(); if (!who) return toast("Name the reviewer approving this edit.");
+    let r; try { r = n8nRead(); } catch (e) { return toast("Couldn't read that export: " + e.message); }
+    const gate = $("n8nGate").value.trim();
+    if (!r.norm.nodes.includes(gate)) return toast("The gate node must be one of: " + r.norm.nodes.join(", "));
+    const p = JSON.parse(JSON.stringify(mesh().charter.policy));
+    p.workflow = r.norm; p.gate_node = gate;
+    $("edPolicy").value = J(p);
+    $("applyCharter").click();
+  });
+
+  // ---------- task chain ----------
+  const CHAIN_EXAMPLES = {
+    "video-publish": {
+      raw: "Write the public description for the harbor video. Keep it punchy, credit the co-op, and don't mention money.",
+      entity: "vid-1",
+    },
+    "oracle-csa": {
+      raw: "Draft the customer notice for the scheduled maintenance window. Keep it short, name the affected service, and don't promise uptime numbers.",
+      entity: "wl-1",
+    },
+  };
+  function templateTerms(key) {
+    return key === "video-publish" ? [
+      ["punchy", ["At most 160 characters", "Ends with an exclamation mark"]],
+      ["credit the co-op", ["Includes the exact text 'Harbor Co-op'", "Mentions the word co-op"]],
+      ["don't mention money", ["Excludes the word 'monetized'", "Excludes any currency symbol"]],
+      ["public description", ["The text field of the published video page"]],
+    ] : [
+      ["short", ["At most 280 characters", "At most two sentences"]],
+      ["name the affected service", ["Includes the text 'Object Storage'"]],
+      ["don't promise uptime numbers", ["Excludes the text '%'", "Excludes the word 'guarantee'"]],
+      ["customer notice", ["The text body of the maintenance e-mail"]],
+    ];
+  }
+  function templateDraft(s) {
+    const pick = (t) => (s.terms.find((x) => x.term === t) || {}).chosen || "";
+    const main = s.terms[s.terms.length - 1] ? s.terms[s.terms.length - 1].term : "";
+    const ev = [];
+    for (const t of s.terms.slice(0, -1)) {
+      const r = pick(t.term);
+      let check = null, m;
+      if ((m = /at most (\d+) characters/i.exec(r))) check = { type: "maxLength", field: "text", max: Number(m[1]) };
+      else if ((m = /includes the (?:exact )?text '([^']+)'/i.exec(r))) check = { type: "includes", field: "text", text: m[1] };
+      else if ((m = /excludes the (?:word|text) '([^']+)'/i.exec(r))) check = { type: "excludes", field: "text", text: m[1] };
+      else if (/exclamation/i.test(r)) check = { type: "regex", field: "text", pattern: "!\\s*$" };
+      else if ((m = /mentions the word ([\w-]+)/i.exec(r))) check = { type: "includes", field: "text", text: m[1] };
+      else if (/currency/i.test(r)) check = { type: "regex", field: "text", pattern: "^[^$€£¥]*$" };
+      else if (/two sentences/i.test(r)) check = { type: "regex", field: "text", pattern: "^[^.!?]*[.!?]?[^.!?]*[.!?]?\\s*$" };
+      ev.push({ id: "S" + (ev.length + 1), criterion: r || t.term, from: t.term, check });
+    }
+    return {
+      inputs: [{ value: "Admitted entity " + (CHAIN_EXAMPLES[state.key].entity), from: main }],
+      outputs: [{ value: "Candidate {text}", from: main }],
+      invariants: [{ value: "The deployed version is untouched until promotion", from: main }],
+      side_effects: [{ value: "edit_temp_copy", from: main }, { value: "promote_deployed", from: main }],
+      success_evidence: ev,
+      stop_conditions: [{ value: "Attempt cap reached", from: main }],
+    };
+  }
+  function templateFulfill(spec) {
+    const base = state.key === "video-publish"
+      ? "A long, slow look at the harbor as the light goes: the boats come in, the cranes stop, and the city switches on across the water, filmed over three evenings in late summer by a small crew, now monetized for streaming."
+      : "Object Storage in us-ashburn-1 will be under maintenance on Saturday 02:00 to 04:00 UTC. We guarantee 99.99% availability during the window and expect no impact.";
+    return { text: base };
+  }
+  function templateRepair(spec, cand, failures) {
+    let t = cand.text;
+    const ids = new Set(failures.map((f) => f.id));
+    const checks = spec.success_evidence.filter((c) => ids.has(c.id)).map((c) => c.check);
+    for (const c of checks) if (c.type === "excludes") t = t.replace(new RegExp(c.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[^,.;]*", "gi"), "").replace(/\s+([,.])/g, "$1").replace(/,\s*\./g, ".");
+    if (checks.some((c) => c.type === "regex" && /\[\^\$/.test(c.pattern))) t = t.replace(/[$€£¥]/g, "");
+    const inc = checks.filter((c) => c.type === "includes").map((c) => c.text);
+    const tail = inc.length ? " " + inc.map((x) => "With " + x + ".").join(" ") : "";
+    const max = Math.min(...spec.success_evidence.filter((c) => c.check.type === "maxLength").map((c) => c.check.max), Infinity);
+    if (Number.isFinite(max) && (t + tail).length > max) t = t.slice(0, Math.max(0, max - tail.length - 1)).replace(/\s+\S*$/, "") + ".";
+    t = (t + tail).trim();
+    if (checks.some((c) => c.type === "regex" && /!/.test(c.pattern))) t = t.replace(/[.\s]*$/, "!");
+    return { text: t };
+  }
+
+  function newChain() {
+    const ex = CHAIN_EXAMPLES[state.key];
+    return { stage: 0, raw: ex.raw, entity: ex.entity, session: null, exit: null, spec: null, grants: null, refused: null, result: null, promoted: null, cap: 3, live: "" };
+  }
+  $("execSeg").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-exec]"); if (!b) return;
+    state.exec = b.dataset.exec;
+    for (const x of $("execSeg").children) x.setAttribute("aria-pressed", String(x === b));
+    renderChain();
+  });
+
+  function renderChain() {
+    if (!state.chain) state.chain = newChain();
+    const c = state.chain, m = mesh(), s = c.session;
+    const useClaude = state.exec === "claude";
+    const claudeNote = useClaude && !state.caps.sample ? `<p class="note">Claude isn't reachable in this view. Switch to the deterministic template.</p>` : "";
+    const ents = Object.keys(m.world.entities);
+    const readiness = s ? OGM.Litr8.readiness(s) : null;
+    const step = (n, title, chip, body) => `<div class="step"><div class="row"><div class="row"><span class="stepno">${n}</span><h2>${title}</h2></div>${chip}</div>${body}</div>`;
+    const chipFor = (done, label) => done ? `<span class="chip pass">${label}</span>` : `<span class="chip idle">pending</span>`;
+
+    const termsHtml = s ? s.terms.map((t, ti) => `<div class="term"><div class="row" style="justify-content:space-between"><b>${esc(t.term)}</b><span class="chip ${t.status === "resolved" ? "pass" : t.status === "deferred" ? "esc" : "idle"}">${t.status}</span></div><div class="opts">${t.readings.map((r, ri) => `<label class="row" style="gap:6px"><input type="radio" name="t${ti}" data-t="${ti}" data-r="${ri}" ${t.chosen === r ? "checked" : ""}> <span>${esc(r)}</span></label>`).join("")}</div><div class="row"><input type="text" placeholder="Write your own literal reading" data-own="${ti}" style="flex:1 1 200px"><button class="btn ghost small" type="button" data-ownbtn="${ti}">Use mine</button><button class="btn ghost small" type="button" data-defer="${ti}">Defer</button></div></div>`).join("") : "";
+
+    const html = [
+      step(0, "Litr8 · pre-specification", chipFor(c.exit && c.exit.ready, "ready"), `
+        <p class="muted">The raw statement is stored verbatim as FidGit entry 0 and never edited. Every term gets literal readings; open terms are never silently resolved.</p>
+        <label class="field"><span class="label">Raw idea</span><textarea id="rawIdea" ${s ? "disabled" : ""}>${esc(c.raw)}</textarea></label>
+        ${claudeNote}
+        <div class="row">${s ? "" : `<button class="btn" id="capture" type="button">Capture and run term pass</button>`}
+          ${s ? `<button class="btn ghost" id="draftBtn" type="button">${useClaude ? "Draft spec with Claude" : "Draft spec from readings"}</button><button class="btn" id="exitLitr8" type="button">Readiness test and exit</button><button class="btn ghost small" id="restartChain" type="button">Start over</button>` : ""}</div>
+        ${c.live ? `<p class="stream">${esc(c.live)}</p>` : ""}
+        ${termsHtml}
+        ${s && Object.keys(s.draft).length ? `<details><summary>Draft BaceSpec fields (iteration ${s.iteration})</summary><pre class="json">${esc(J(s.draft))}</pre></details>` : ""}
+        ${readiness ? `<div class="note">${readiness.ready ? "<span class='chip pass'>ready</span> Every term resolved or deferred, every criterion checkable, every field sourced." : "<span class='chip esc'>not ready</span><br>" + readiness.problems.map(esc).join("<br>")}</div>` : ""}`),
+      step(1, "BaceSpec · freeze", chipFor(c.spec, "frozen"), c.exit && c.exit.ready ? `
+        <p class="muted">Promotion is a separate authorized step. Once frozen, FulRR can't redefine success to fit its output.</p>
+        ${c.spec ? `<dl class="kv"><dt>id</dt><dd>${esc(c.spec.id)} v${c.spec.version}</dd><dt>approved by</dt><dd>${esc(c.spec.approved_by)}</dd><dt>hash</dt><dd>${esc(c.spec.hash)}</dd><dt>frozen</dt><dd>${Object.isFrozen(c.spec)}</dd></dl>` :
+        `<div class="row"><input type="text" id="specApprover" placeholder="Approver name" style="flex:1 1 200px"><button class="btn" id="freeze" type="button">Freeze as BaceSpec</button></div>`}
+        ${c.exit.open_terms.length ? `<p class="muted">Open terms carried with the spec: ${c.exit.open_terms.map((t) => esc(t.term) + " (" + t.status + ")").join(", ")}</p>` : ""}` : `<p class="muted">Waiting for a ready Litr8 exit.</p>`),
+      step(2, "DeStraint · grants", chipFor(c.grants, "granted"), c.spec ? `
+        <p class="muted">Duties are the ceiling. A grant is scoped, budgeted and expiring, and only for side effects the spec allows. The edit_deployed request below is refused on purpose.</p>
+        <label class="field"><span class="label">Entity the task works on</span><select id="chainEntity">${ents.length ? ents.map((e) => `<option ${e === c.entity ? "selected" : ""}>${esc(e)}</option>`).join("") : `<option value="">(none admitted; run a mesh scenario first)</option>`}</select></label>
+        ${c.grants ? `<div class="tablewrap"><table><thead><tr><th>Grant</th><th>Scope</th><th>Budget</th><th>Expires</th><th>Approved by</th></tr></thead><tbody>${c.grants.map((g) => `<tr><td>${esc(g.id)}</td><td>${esc(g.scope)}</td><td>${g.used}/${g.budget}</td><td>${new Date(g.expires_at).toLocaleTimeString()}</td><td>${esc(g.approved_by || "")}</td></tr>`).join("")}</tbody></table></div>${c.refused.map((r) => `<p class="note"><span class="chip block">refused</span> ${esc(r.scope || r.action)}: ${esc(r.why)}</p>`).join("")}` :
+        `<div class="row"><label class="field" style="width:120px"><span class="label">Attempt cap</span><input type="number" id="capIn" min="1" max="6" value="${c.cap}"></label><button class="btn" id="grant" type="button">Issue grants</button></div>`}` : `<p class="muted">Waiting for a frozen spec.</p>`),
+      step(3, "FulRR · fulfill, review, repair", c.result ? `<span class="chip ${c.result.status === "passed" ? "pass" : "block"}">${c.result.status}</span>` : chipFor(false), c.grants ? `
+        <p class="muted">${useClaude ? "Claude fulfills and repairs (default tier). A second Claude call (complex tier) reviews for results that meet the letter but break the intent." : "The deterministic template fulfills with a flawed first draft, then repairs only the named failures."} Each attempt is a FidGit entry. At the cap the failure is preserved and the run ends unresolved.</p>
+        ${c.result ? "" : `<button class="btn" id="runFulrr" type="button">Run FulRR</button>`}
+        ${c.live2 ? `<p class="stream">${esc(c.live2)}</p>` : ""}
+        ${(c.attempts || []).map((a) => `<div class="attempt"><div class="row" style="justify-content:space-between"><b>Attempt ${a.n}</b><span class="chip ${a.failures.length ? "block" : "pass"}">${a.failures.length ? a.failures.length + " named failure(s)" : "passed review"}</span></div><p class="mono">${esc(a.candidate.text)}</p><ul>${a.review.map((r) => `<li>${r.pass ? "✓" : "✗"} ${esc(r.id)} ${esc(r.criterion)}</li>`).join("")}${a.intent.map((o) => `<li>✗ ${esc(o.id)} intent: ${esc(o.text)}</li>`).join("")}</ul></div>`).join("")}` : `<p class="muted">Waiting for grants.</p>`),
+      step(4, "Promote", chipFor(c.promoted && c.promoted.ok, "promoted"), c.result ? `
+        <p class="muted">Moving the candidate to the deployed version needs a passing Review, its own grant, and a FidGit entry.</p>
+        ${c.promoted ? `<p class="note">${c.promoted.ok ? "<span class='chip pass'>promoted</span> FidGit entry " + short(c.promoted.entry.hash) : "<span class='chip block'>refused</span> " + esc(c.promoted.why)}</p>` : `<button class="btn" id="promote" type="button">Promote to deployed</button>`}` : `<p class="muted">Waiting for FulRR.</p>`),
+    ].join("");
+    $("steps").innerHTML = html;
+  }
+
+  $("steps").addEventListener("click", async (e) => {
+    const c = state.chain, m = mesh(), t = e.target;
+    const useClaude = state.exec === "claude";
+    if (t.id === "restartChain") { state.chain = newChain(); return renderChain(); }
+    if (t.id === "capture") {
+      c.raw = $("rawIdea").value.trim(); if (!c.raw) return toast("Write the raw idea first.");
+      c.session = OGM.Litr8.capture(c.raw, m.fidgit);
+      if (useClaude && state.caps.sample) {
+        t.disabled = true; c.live = "Thinking…"; renderChain();
+        try {
+          const r = await state.caps.sample.json(`You run the Litr8 term pass: turn a raw, possibly incoherent idea into terms with literal, checkable readings.\nList every term in the statement that a spec would depend on. For each, propose one to three literal readings. Where possible, phrase a reading so it maps to one check: "At most N characters", "Includes the exact text 'X'", "Excludes the word 'X'", "Ends with an exclamation mark". The LAST term must be the deliverable itself (what is being produced).\nRaw statement: ${JSON.stringify(c.raw)}\nReply with only JSON: {"terms":[{"term":"...","readings":["..."]}]}`, { modelTier: "quick" });
+          for (const x of (r.terms || [])) if (x && x.term && Array.isArray(x.readings) && x.readings.length) OGM.Litr8.addTerm(c.session, String(x.term), x.readings.map(String));
+          c.live = "";
+        } catch (err) { c.live = "Term pass failed (" + (err.code || err.message) + "). Using the template terms."; for (const [a, b] of templateTerms(state.key)) OGM.Litr8.addTerm(c.session, a, b); }
+      } else {
+        if (c.raw !== CHAIN_EXAMPLES[state.key].raw) toast("The template knows only the example idea's terms. Switch to Claude for your own.");
+        for (const [a, b] of templateTerms(state.key)) OGM.Litr8.addTerm(c.session, a, b);
+      }
+      renderChain(); save(); return;
+    }
+    if (t.dataset.ownbtn !== undefined) {
+      const i = Number(t.dataset.ownbtn); const v = document.querySelector(`[data-own="${i}"]`).value.trim();
+      if (!v) return toast("Type a reading first.");
+      OGM.Litr8.choose(c.session, c.session.terms[i].term, v); return renderChain();
+    }
+    if (t.dataset.defer !== undefined) { OGM.Litr8.defer(c.session, c.session.terms[Number(t.dataset.defer)].term); return renderChain(); }
+    if (t.id === "draftBtn") {
+      if (useClaude && state.caps.sample) {
+        t.disabled = true; c.live = "Drafting…"; renderChain();
+        try {
+          const terms = c.session.terms.map((x) => ({ term: x.term, status: x.status, reading: x.chosen }));
+          const r = await state.caps.sample.json(`Draft BaceSpec fields from a Litr8 session. Every item must cite the term it came from in "from" (exact term string). Use only resolved terms. The candidate output is a JSON object {"text": string}.\nFields: inputs, outputs, invariants, side_effects, success_evidence, stop_conditions. Each is a list of {"value": "...", "from": "<term>"}, except success_evidence items which are {"id":"S1","criterion":"...","from":"<term>","check":{...}}.\nside_effects must be exactly [{"value":"edit_temp_copy","from":<deliverable term>},{"value":"promote_deployed","from":<deliverable term>}].\nAllowed checks on field "text": {"type":"maxLength","field":"text","max":N}, {"type":"minLength","field":"text","min":N}, {"type":"includes","field":"text","text":"..."}, {"type":"excludes","field":"text","text":"..."}, {"type":"regex","field":"text","pattern":"..."}, {"type":"nonEmpty","field":"text"}.\nRaw statement: ${JSON.stringify(c.raw)}\nTerms: ${JSON.stringify(terms)}\nReply with only the JSON object of the six fields.`, { modelTier: "default" });
+          OGM.Litr8.setDraft(c.session, r); c.live = "";
+        } catch (err) { c.live = "Draft failed (" + (err.code || err.message) + "). Using the template draft."; OGM.Litr8.setDraft(c.session, templateDraft(c.session)); }
+      } else OGM.Litr8.setDraft(c.session, templateDraft(c.session));
+      return renderChain();
+    }
+    if (t.id === "exitLitr8") {
+      if (!Object.keys(c.session.draft).length) OGM.Litr8.setDraft(c.session, templateDraft(c.session));
+      c.exit = OGM.Litr8.exit(c.session, m.fidgit); renderChain(); save();
+      return toast(c.exit.ready ? "Spec candidate ready for approval." : "Not ready yet. See the problems listed.");
+    }
+    if (t.id === "freeze") {
+      const who = $("specApprover").value.trim();
+      try { c.spec = OGM.BaceSpec.promote(c.exit.candidate, who, m.fidgit, "spec-" + Date.now().toString(36)); } catch (err) { return toast(err.message); }
+      renderChain(); save(); return;
+    }
+    if (t.id === "grant") {
+      c.entity = $("chainEntity").value || null;
+      c.cap = Math.max(1, Math.min(6, Number($("capIn").value) || 3));
+      const who = c.spec.approved_by;
+      const r = OGM.DeStraint.issue(m, { spec: c.spec, entityId: c.entity, approver: who, requests: [
+        { scope: "edit_temp_copy", budget: c.cap },
+        { scope: "promote_deployed", budget: 1, needs_approval: true },
+        { scope: "edit_deployed", budget: 1 },
+      ] }, m.fidgit);
+      c.grants = r.grants; c.refused = r.refused; renderChain(); save(); return;
+    }
+    if (t.id === "runFulrr") {
+      t.disabled = true;
+      c.attempts = [];
+      const sample = state.caps.sample;
+      const claudeOn = useClaude && sample;
+      const fulfill = claudeOn ? async (spec) => { c.live2 = "Fulfilling…"; renderChain(); const r = await sample.json(`You are the FulRR executor. Produce a candidate that satisfies this frozen spec. Reply with only JSON {"text": "..."}.\nRaw intent: ${JSON.stringify(c.raw)}\nSpec: ${JSON.stringify({ outputs: spec.outputs, invariants: spec.invariants, success_evidence: spec.success_evidence, vocabulary: spec.vocabulary })}\nAdmitted entity: ${JSON.stringify(m.world.entities[c.entity] || null)}`, { modelTier: "default", cache: false }); return { text: String(r.text || "") }; } : async (spec) => templateFulfill(spec);
+      const repair = claudeOn ? async (spec, cand, failures) => { c.live2 = "Repairing named failures…"; renderChain(); const r = await sample.json(`You are the FulRR repairer. Fix ONLY the named failures; change nothing else. Reply with only JSON {"text": "..."}.\nCandidate: ${JSON.stringify(cand)}\nNamed failures: ${JSON.stringify(failures)}\nSpec checks: ${JSON.stringify(spec.success_evidence)}`, { modelTier: "default", cache: false }); return { text: String(r.text || "") }; } : async (spec, cand, f) => templateRepair(spec, cand, f);
+      const intentCheck = claudeOn ? async (spec, cand) => { c.live2 = "Reviewing intent…"; renderChain(); const r = await sample.json(`You are the REVIEW adversary. Hunt for a result that meets the letter of the spec but breaks its intent. Be strict but concrete; do not restate failed checks.\nRaw intent: ${JSON.stringify(c.raw)}\nSpec criteria: ${JSON.stringify(spec.success_evidence.map((x) => ({ id: x.id, criterion: x.criterion })))}\nCandidate: ${JSON.stringify(cand)}\nReply with only JSON {"objections":[{"id":"I1","text":"..."}]} or {"objections":[]}.`, { modelTier: "complex", cache: false }); return (r.objections || []).map((o, i) => ({ id: o.id || "I" + (i + 1), text: String(o.text || "") })); } : null;
+      try {
+        c.result = await OGM.FulRR.run({ spec: c.spec, grants: c.grants, fulfill, repair, intentCheck, cap: c.cap, mesh: m, fidgit: m.fidgit, onStep: (a) => { c.attempts.push(a); c.live2 = ""; renderChain(); } });
+      } catch (err) {
+        c.result = { status: "unresolved", reason: err.code || err.message, attempts: c.attempts };
+        m.fidgit.append({ stage: "fulrr", reason: "Executor error: " + (err.code || err.message), outcome: "unresolved" });
+      }
+      c.live2 = c.result.status === "passed" ? "" : "Unresolved: " + (c.result.reason || "cap reached") + ". The failure is preserved; nothing is declared done.";
+      renderChain(); renderDrift(); save(); return;
+    }
+    if (t.id === "promote") {
+      c.promoted = OGM.FulRR.promote({ result: c.result, grants: c.grants, fidgit: m.fidgit, approver: c.spec.approved_by });
+      renderChain(); save(); return;
+    }
+  });
+  $("steps").addEventListener("change", (e) => {
+    const t = e.target;
+    if (t.dataset.t !== undefined) { const s = state.chain.session; OGM.Litr8.choose(s, s.terms[Number(t.dataset.t)].term, Number(t.dataset.r)); renderChain(); }
+  });
+
+  // ---------- render all ----------
+  function renderAll() {
+    renderCharterSeg(); renderDrift(); renderAdvNote();
+    const c = mesh().charter;
+    $("charterVer").textContent = c.ontology.registry_version + " · " + c.duties.version;
+    const keepPreset = $("preset").value, keepAction = $("action").value;
+    renderPresetList();
+    if (keepPreset && Number(keepPreset) < PRESETS[state.key].length) $("preset").value = keepPreset;
+    if (keepAction && c.policy.actions[keepAction]) $("action").value = keepAction;
+    renderResult(); renderWorld(); renderQuarantine();
+    if (!$("tab-ledger").hidden) renderLedger();
+    if (!$("tab-charter").hidden) renderCharterEditors();
+    if (!$("tab-chain").hidden) renderChain();
+  }
+
+  boot();
+  loadPreset(0);
+  showTab();
+})();
+</script>

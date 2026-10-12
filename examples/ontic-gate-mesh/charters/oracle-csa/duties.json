@@ -1,0 +1,275 @@
+{
+  "version": "csa-duties-1.0.0",
+  "note": "Ordered, never weighted. Each duty cites the CSA section it encodes.",
+  "duties": [
+    {
+      "id": "D1",
+      "cite": "\u00a713.1",
+      "type": "forbid",
+      "text": "No export in violation of export laws: destination must be cleared and not sanctioned",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "export_dataset"
+        ]
+      },
+      "when": {
+        "any": [
+          {
+            "eq": [
+              "@action.params.destination",
+              "sanctioned"
+            ]
+          },
+          {
+            "ne": [
+              "@entity.export_cleared",
+              "cleared"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "D2",
+      "cite": "\u00a71.3(d)",
+      "type": "forbid",
+      "text": "No cyber or crypto currency mining",
+      "applies": true,
+      "when": {
+        "any": [
+          {
+            "eq": [
+              "@action.name",
+              "mine_crypto"
+            ]
+          },
+          {
+            "eq": [
+              "@entity.purpose",
+              "crypto_mining"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "D3",
+      "cite": "\u00a71.3(c)",
+      "type": "forbid",
+      "text": "No network discovery, port identification, vulnerability scanning, password cracking or remote access testing",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "network_scan"
+        ]
+      },
+      "when": true
+    },
+    {
+      "id": "D4",
+      "cite": "\u00a71.3(c)",
+      "type": "forbid",
+      "text": "No performance or vulnerability testing without Oracle's prior written approval",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "vulnerability_test"
+        ]
+      },
+      "when": {
+        "ne": [
+          "@entity.oracle_written_approval",
+          "on_file"
+        ]
+      }
+    },
+    {
+      "id": "D5",
+      "cite": "\u00a71.3(b)",
+      "type": "forbid",
+      "text": "No benchmarking, or disclosure of it, unless the Service Specifications permit it",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "run_benchmark"
+        ]
+      },
+      "when": {
+        "falsy": "@action.params.permitted_by_service_specs"
+      }
+    },
+    {
+      "id": "D6",
+      "cite": "\u00a71.3(a)",
+      "type": "forbid",
+      "text": "No unsolicited bulk e-mail, junk mail or spam",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "send_bulk_email"
+        ]
+      },
+      "when": {
+        "falsy": "@action.params.recipients_opted_in"
+      }
+    },
+    {
+      "id": "D7",
+      "cite": "\u00a717",
+      "type": "forbid",
+      "text": "You may not assign the Agreement or transfer the Services",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "assign_contract"
+        ]
+      },
+      "when": true
+    },
+    {
+      "id": "D8",
+      "cite": "\u00a73.4(c)",
+      "type": "forbid",
+      "text": "No making the Services available to third parties (timesharing, service bureau)",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "grant_access"
+        ]
+      },
+      "when": {
+        "eq": [
+          "@action.params.party_type",
+          "unrelated_third_party"
+        ]
+      }
+    },
+    {
+      "id": "D9",
+      "cite": "\u00a75.4",
+      "type": "forbid",
+      "text": "Regulated data only where the order provides for it",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "store_dataset"
+        ]
+      },
+      "when": {
+        "all": [
+          {
+            "in": [
+              "@entity.classification",
+              [
+                "regulated_phi",
+                "regulated_pci"
+              ]
+            ]
+          },
+          {
+            "falsy": "@entity.order_permits_regulated"
+          }
+        ]
+      }
+    },
+    {
+      "id": "D10",
+      "cite": "\u00a74.3",
+      "type": "forbid",
+      "text": "Confidential Information goes only to bound employees, agents or subcontractors, or as required by law",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "disclose_dataset"
+        ]
+      },
+      "when": {
+        "all": [
+          {
+            "ne": [
+              "@entity.classification",
+              "public"
+            ]
+          },
+          {
+            "eq": [
+              "@action.params.recipient",
+              "public"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "D11",
+      "cite": "\u00a79.5",
+      "type": "forbid",
+      "text": "Content retrieval only during the Services Period or the retrieval period",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "retrieve_content"
+        ]
+      },
+      "when": {
+        "eq": [
+          "@entity.services_period",
+          "closed"
+        ]
+      }
+    },
+    {
+      "id": "D12",
+      "cite": "\u00a72.2",
+      "type": "require",
+      "text": "Usage above the ordered quantity must be purchased",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "scale_beyond_order"
+        ]
+      },
+      "must": {
+        "exists": "@action.params.purchase_order"
+      },
+      "obligation": "pay_excess_fees"
+    },
+    {
+      "id": "D13",
+      "cite": "\u00a71.1",
+      "type": "forbid",
+      "text": "Launch only for internal business operations or authorized Users",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "launch_workload"
+        ]
+      },
+      "when": {
+        "nin": [
+          "@entity.purpose",
+          [
+            "internal_ops",
+            "authorized_users",
+            "benchmark",
+            "security_test"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "D14",
+      "cite": "OGM",
+      "type": "require",
+      "text": "Every external action writes an audit entry",
+      "applies": {
+        "eq": [
+          "@action.effect",
+          "external"
+        ]
+      },
+      "obligation": "audit_entry"
+    }
+  ]
+}

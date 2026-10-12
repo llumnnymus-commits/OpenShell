@@ -1,0 +1,221 @@
+{
+  "version": "video-policy-1.0.0",
+  "gate_node": "ogm-gate",
+  "gate_class": [
+    "publish",
+    "delete_master"
+  ],
+  "adversary_round_cap": 3,
+  "narrowable": [
+    "monetized",
+    "audience"
+  ],
+  "actions": {
+    "publish": {
+      "kind": "Video",
+      "effect": "external",
+      "reversible": true,
+      "transition": {
+        "to": "published"
+      },
+      "final_consumer": "archive",
+      "params": {
+        "monetized": {
+          "type": "boolean",
+          "default": false
+        },
+        "audience": {
+          "enum": [
+            "small",
+            "broad"
+          ],
+          "default": "small"
+        },
+        "attribution": {
+          "type": "string"
+        }
+      }
+    },
+    "save_draft": {
+      "kind": "Video",
+      "effect": "internal",
+      "reversible": true,
+      "params": {}
+    },
+    "request_rights_proof": {
+      "kind": "Video",
+      "effect": "internal",
+      "reversible": true,
+      "params": {}
+    },
+    "delete_master": {
+      "kind": "Video",
+      "effect": "internal",
+      "reversible": false,
+      "final_consumer": "cold-storage-purge",
+      "params": {}
+    }
+  },
+  "case_requirements": [
+    {
+      "id": "C1",
+      "claim": "Rights are owned or licensed",
+      "holds": {
+        "in": [
+          "@entity.rights",
+          [
+            "owned",
+            "licensed"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "C2",
+      "claim": "The action is reversible",
+      "holds": "@action.reversible"
+    },
+    {
+      "id": "C3",
+      "claim": "The audience is small",
+      "holds": {
+        "eq": [
+          "@action.params.audience",
+          "small"
+        ]
+      },
+      "required": false
+    }
+  ],
+  "objections": [
+    {
+      "id": "O1",
+      "text": "The license covers streaming, but the target is monetized",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "publish"
+        ]
+      },
+      "when": {
+        "all": [
+          {
+            "eq": [
+              "@action.params.monetized",
+              true
+            ]
+          },
+          {
+            "ne": [
+              "@entity.license_scope",
+              "streaming_monetized"
+            ]
+          }
+        ]
+      },
+      "severity": "partial",
+      "narrowing": {
+        "monetized": false
+      }
+    },
+    {
+      "id": "O2",
+      "text": "A broad audience on licensed, not owned, rights",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "publish"
+        ]
+      },
+      "when": {
+        "all": [
+          {
+            "eq": [
+              "@action.params.audience",
+              "broad"
+            ]
+          },
+          {
+            "ne": [
+              "@entity.rights",
+              "owned"
+            ]
+          }
+        ]
+      },
+      "severity": "partial",
+      "narrowing": {
+        "audience": "small"
+      }
+    },
+    {
+      "id": "O3",
+      "text": "Rights are claimed as licensed but no license scope is on record",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "publish"
+        ]
+      },
+      "when": {
+        "all": [
+          {
+            "eq": [
+              "@entity.rights",
+              "licensed"
+            ]
+          },
+          {
+            "eq": [
+              "@entity.license_scope",
+              "none"
+            ]
+          }
+        ]
+      },
+      "severity": "full"
+    }
+  ],
+  "workflow": {
+    "nodes": [
+      "render",
+      "rights-check",
+      "upload",
+      "ogm-gate",
+      "publish",
+      "notify",
+      "archive",
+      "cold-storage-purge"
+    ],
+    "edges": [
+      [
+        "render",
+        "rights-check"
+      ],
+      [
+        "rights-check",
+        "upload"
+      ],
+      [
+        "upload",
+        "ogm-gate"
+      ],
+      [
+        "ogm-gate",
+        "publish"
+      ],
+      [
+        "publish",
+        "notify"
+      ],
+      [
+        "notify",
+        "archive"
+      ],
+      [
+        "archive",
+        "cold-storage-purge"
+      ]
+    ]
+  }
+}

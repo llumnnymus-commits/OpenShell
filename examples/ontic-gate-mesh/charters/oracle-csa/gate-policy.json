@@ -1,0 +1,357 @@
+{
+  "version": "csa-policy-1.0.0",
+  "gate_node": "ogm-gate",
+  "gate_class": [
+    "export_dataset",
+    "disclose_dataset",
+    "grant_access",
+    "vulnerability_test",
+    "store_dataset",
+    "assign_contract",
+    "scale_beyond_order"
+  ],
+  "adversary_round_cap": 3,
+  "narrowable": [
+    "recipient",
+    "party_type",
+    "scope",
+    "destination"
+  ],
+  "actions": {
+    "launch_workload": {
+      "kind": "Workload",
+      "effect": "external",
+      "reversible": true,
+      "transition": {
+        "to": "running"
+      },
+      "params": {}
+    },
+    "scale_beyond_order": {
+      "kind": "Workload",
+      "effect": "external",
+      "reversible": true,
+      "params": {
+        "purchase_order": {
+          "type": "string"
+        }
+      }
+    },
+    "run_benchmark": {
+      "kind": "Workload",
+      "effect": "external",
+      "reversible": true,
+      "params": {
+        "permitted_by_service_specs": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "vulnerability_test": {
+      "kind": "Workload",
+      "effect": "external",
+      "reversible": true,
+      "params": {
+        "scope": {
+          "enum": [
+            "own_tenancy",
+            "shared_infrastructure"
+          ],
+          "default": "own_tenancy"
+        }
+      }
+    },
+    "network_scan": {
+      "kind": "Workload",
+      "effect": "external",
+      "reversible": true,
+      "params": {}
+    },
+    "mine_crypto": {
+      "kind": "Workload",
+      "effect": "external",
+      "reversible": true,
+      "params": {}
+    },
+    "send_bulk_email": {
+      "kind": "Workload",
+      "effect": "external",
+      "reversible": false,
+      "final_consumer": "notify-owner",
+      "params": {
+        "recipients_opted_in": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "grant_access": {
+      "kind": "Workload",
+      "effect": "external",
+      "reversible": true,
+      "params": {
+        "party_type": {
+          "enum": [
+            "employee",
+            "contractor",
+            "end_user",
+            "unrelated_third_party"
+          ],
+          "default": "employee"
+        }
+      }
+    },
+    "assign_contract": {
+      "kind": "Workload",
+      "effect": "external",
+      "reversible": false,
+      "final_consumer": "counterparty-onboarding",
+      "params": {}
+    },
+    "retrieve_content": {
+      "kind": "Workload",
+      "effect": "internal",
+      "reversible": true,
+      "params": {}
+    },
+    "store_dataset": {
+      "kind": "Dataset",
+      "effect": "internal",
+      "reversible": true,
+      "transition": {
+        "to": "stored"
+      },
+      "params": {}
+    },
+    "export_dataset": {
+      "kind": "Dataset",
+      "effect": "external",
+      "reversible": false,
+      "final_consumer": "audit-archive",
+      "transition": {
+        "to": "exported"
+      },
+      "params": {
+        "destination": {
+          "enum": [
+            "domestic",
+            "allied",
+            "sanctioned"
+          ],
+          "default": "domestic"
+        }
+      }
+    },
+    "disclose_dataset": {
+      "kind": "Dataset",
+      "effect": "external",
+      "reversible": false,
+      "final_consumer": "audit-archive",
+      "params": {
+        "recipient": {
+          "enum": [
+            "employee_need_to_know",
+            "subcontractor_bound",
+            "government_required_by_law",
+            "public"
+          ],
+          "default": "employee_need_to_know"
+        }
+      }
+    }
+  },
+  "case_requirements": [
+    {
+      "id": "C1",
+      "claim": "Dataset is covered by the Data Processing Agreement",
+      "applies": {
+        "eq": [
+          "@kind",
+          "Dataset"
+        ]
+      },
+      "holds": "@entity.dpa_covered"
+    },
+    {
+      "id": "C2",
+      "claim": "Use stays within the ordered quantity, or a purchase order is attached",
+      "applies": {
+        "eq": [
+          "@kind",
+          "Workload"
+        ]
+      },
+      "holds": {
+        "any": [
+          {
+            "lte": [
+              "@entity.used_units",
+              "@entity.ordered_units"
+            ]
+          },
+          {
+            "exists": "@action.params.purchase_order"
+          }
+        ]
+      }
+    },
+    {
+      "id": "C3",
+      "claim": "The action is reversible",
+      "holds": "@action.reversible",
+      "required": false
+    }
+  ],
+  "objections": [
+    {
+      "id": "O1",
+      "text": "A subcontractor recipient must be bound to protections no less protective than the CSA (\u00a74.3); narrow to need-to-know employees",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "disclose_dataset"
+        ]
+      },
+      "when": {
+        "eq": [
+          "@action.params.recipient",
+          "subcontractor_bound"
+        ]
+      },
+      "severity": "partial",
+      "narrowing": {
+        "recipient": "employee_need_to_know"
+      }
+    },
+    {
+      "id": "O2",
+      "text": "Contractor access makes Services available beyond authorized Users unless they act for You (\u00a720.5); narrow to employees",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "grant_access"
+        ]
+      },
+      "when": {
+        "eq": [
+          "@action.params.party_type",
+          "contractor"
+        ]
+      },
+      "severity": "partial",
+      "narrowing": {
+        "party_type": "employee"
+      }
+    },
+    {
+      "id": "O3",
+      "text": "Written approval covers Your tenancy, not shared infrastructure (\u00a71.3(c))",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "vulnerability_test"
+        ]
+      },
+      "when": {
+        "eq": [
+          "@action.params.scope",
+          "shared_infrastructure"
+        ]
+      },
+      "severity": "partial",
+      "narrowing": {
+        "scope": "own_tenancy"
+      }
+    },
+    {
+      "id": "O4",
+      "text": "Payment card data needs additional services such as Oracle PCI Compliance Services (\u00a75.4); a human must decide",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "store_dataset"
+        ]
+      },
+      "when": {
+        "eq": [
+          "@entity.classification",
+          "regulated_pci"
+        ]
+      },
+      "severity": "escalate"
+    },
+    {
+      "id": "O5",
+      "text": "Export to an allied destination of personal information needs a transfer basis under the DPA (\u00a75.2)",
+      "applies": {
+        "eq": [
+          "@action.name",
+          "export_dataset"
+        ]
+      },
+      "when": {
+        "all": [
+          {
+            "eq": [
+              "@action.params.destination",
+              "allied"
+            ]
+          },
+          {
+            "eq": [
+              "@entity.classification",
+              "personal_info"
+            ]
+          }
+        ]
+      },
+      "severity": "partial",
+      "narrowing": {
+        "destination": "domestic"
+      }
+    }
+  ],
+  "workflow": {
+    "nodes": [
+      "intake",
+      "classify",
+      "policy-check",
+      "ogm-gate",
+      "provision",
+      "notify-owner",
+      "audit-archive",
+      "counterparty-onboarding"
+    ],
+    "edges": [
+      [
+        "intake",
+        "classify"
+      ],
+      [
+        "classify",
+        "policy-check"
+      ],
+      [
+        "policy-check",
+        "ogm-gate"
+      ],
+      [
+        "ogm-gate",
+        "provision"
+      ],
+      [
+        "provision",
+        "notify-owner"
+      ],
+      [
+        "notify-owner",
+        "audit-archive"
+      ],
+      [
+        "audit-archive",
+        "counterparty-onboarding"
+      ]
+    ]
+  }
+}
